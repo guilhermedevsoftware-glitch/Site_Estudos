@@ -1,0 +1,124 @@
+{# Macros reutilizáveis. Importar com:  {% from "_macros.html" import ... with context %} #}
+
+{% macro csrf() -%}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{%- endmacro %}
+
+{# Token CSRF + URL de retorno (preserva filtros e página após salvar/excluir) #}
+{% macro campos_base() -%}
+{{ csrf() }}<input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+{%- endmacro %}
+
+{% macro badge(rotulo) -%}
+<span class="badge text-bg-{{ rotulo|cor }}">{{ rotulo }}</span>
+{%- endmacro %}
+
+{% macro opcoes(lista, selecionado=None, vazio=None) -%}
+{% if vazio is not none %}<option value="">{{ vazio }}</option>{% endif %}
+{% for o in lista %}<option value="{{ o }}" {{ 'selected' if o == selecionado }}>{{ o }}</option>{% endfor %}
+{%- endmacro %}
+
+{% macro opcoes_materias(materias, selecionado=None, vazio=None) -%}
+{% if vazio is not none %}<option value="">{{ vazio }}</option>{% endif %}
+{% for m in materias %}<option value="{{ m.id }}" {{ 'selected' if m.id == selecionado }}>{{ m.nome }}</option>{% endfor %}
+{%- endmacro %}
+
+{% macro botao_excluir(url, mensagem, classes='btn btn-sm btn-outline-danger') -%}
+<form method="post" action="{{ url }}" class="d-inline form-excluir" data-mensagem="{{ mensagem }}">
+  {{ campos_base() }}
+  <button type="submit" class="{{ classes }}" title="Excluir" aria-label="Excluir"><i class="bi bi-trash"></i></button>
+</form>
+{%- endmacro %}
+
+{% macro vazio(icone, titulo, texto='') -%}
+<div class="empty-state">
+  <i class="bi {{ icone }}"></i>
+  <h5>{{ titulo }}</h5>
+  {% if texto %}<p class="text-body-secondary mb-3">{{ texto }}</p>{% endif %}
+  {{ caller() if caller else '' }}
+</div>
+{%- endmacro %}
+
+{% macro paginacao(pag) -%}
+{% if pag.pages > 1 %}
+<nav aria-label="Paginação" class="mt-3">
+  <ul class="pagination pagination-sm justify-content-center mb-0">
+    <li class="page-item {{ 'disabled' if not pag.has_prev }}">
+      <a class="page-link" href="{{ url_pagina(pag.prev_num) if pag.has_prev else '#' }}">Anterior</a>
+    </li>
+    {% for p in pag.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {{ 'active' if p == pag.page }}"><a class="page-link" href="{{ url_pagina(p) }}">{{ p }}</a></li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {{ 'disabled' if not pag.has_next }}">
+      <a class="page-link" href="{{ url_pagina(pag.next_num) if pag.has_next else '#' }}">Próxima</a>
+    </li>
+  </ul>
+  <div class="text-center text-body-secondary small mt-1">{{ pag.total }} registro(s)</div>
+</nav>
+{% elif pag.total %}
+<div class="text-center text-body-secondary small mt-3">{{ pag.total }} registro(s)</div>
+{% endif %}
+{%- endmacro %}
+
+{# Cartão de indicador do dashboard #}
+{% macro indicador(icone, rotulo, valor, detalhe='', cor='primary') -%}
+<div class="card stat-card h-100">
+  <div class="card-body d-flex align-items-center gap-3">
+    <div class="stat-icon bg-{{ cor }}-subtle text-{{ cor }}-emphasis"><i class="bi {{ icone }}"></i></div>
+    <div class="min-w-0">
+      <div class="stat-label">{{ rotulo }}</div>
+      <div class="stat-value">{{ valor }}</div>
+      {% if detalhe %}<div class="stat-detail">{{ detalhe }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{# Moldura de modal com formulário; o conteúdo dos campos vem via `caller()` #}
+{% macro modal_form(id, tamanho='', botao='Salvar') -%}
+<div class="modal fade" id="{{ id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable {{ tamanho }}">
+    <form class="modal-content needs-validation" method="post" novalidate>
+      {{ campos_base() }}
+      <div class="modal-header">
+        <h5 class="modal-title"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">{{ caller() }}</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>{{ botao }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{%- endmacro %}
+
+{# Dados de conteúdos por matéria (para os seletores dependentes) #}
+{% macro dados_conteudos() -%}
+<script id="dados-conteudos" type="application/json">{{ conteudos_map()|tojson }}</script>
+{%- endmacro %}
+
+{# Campo de senha com botão mostrar/ocultar aviso de Caps Lock e (opcional) medidor de força #}
+{% macro campo_senha(nome, rotulo, id, autocomplete='current-password', forca=False, ajuda='', confirma_de='') -%}
+<div class="mb-3">
+  <label class="form-label" for="{{ id }}">{{ rotulo }}</label>
+  <div class="input-group">
+    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+    <input class="form-control" type="password" name="{{ nome }}" id="{{ id }}" autocomplete="{{ autocomplete }}" required
+           {% if forca %}data-forca="1"{% endif %} {% if confirma_de %}data-confirma="{{ confirma_de }}"{% endif %}>
+    <button class="btn btn-outline-secondary" type="button" data-toggle-senha="{{ id }}" aria-label="Mostrar ou ocultar a senha"><i class="bi bi-eye"></i></button>
+    <div class="invalid-feedback">{{ 'As senhas não conferem.' if confirma_de else 'Informe a senha.' }}</div>
+  </div>
+  {% if forca %}
+  <div class="progress mt-2 forca-barra" style="height:.35rem"><div class="progress-bar" id="{{ id }}-forca" style="width:0"></div></div>
+  <div class="form-text" id="{{ id }}-dica">Mínimo de 8 caracteres, com letras e números.</div>
+  {% endif %}
+  {% if ajuda %}<div class="form-text">{{ ajuda }}</div>{% endif %}
+  <div class="caps-aviso text-warning small d-none mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Caps Lock está ativado</div>
+</div>
+{%- endmacro %}

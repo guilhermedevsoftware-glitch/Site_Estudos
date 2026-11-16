@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, opcoes, opcoes_materias, botao_excluir, vazio, paginacao, modal_form, indicador with context %}
+{% block titulo %}Metas{% endblock %}
+
+{% block conteudo %}
+<div class="page-header">
+  <h2>Metas de estudos</h2>
+  <button class="btn btn-primary ms-auto" data-form-modal="#modal-meta"
+          data-action="{{ url_for('metas.criar') }}" data-titulo="Nova meta"
+          data-valores='{{ {"tipo": "horas", "data_inicio": hoje.isoformat(), "data_limite": em_30_dias.isoformat()}|tojson }}'>
+    <i class="bi bi-plus-lg me-1"></i>Nova meta
+  </button>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-4">{{ indicador('bi-hourglass-split', 'Em andamento', contagem.get('Em andamento', 0), '', 'primary') }}</div>
+  <div class="col-4">{{ indicador('bi-trophy', 'Concluídas', contagem.get('Concluída', 0), '', 'success') }}</div>
+  <div class="col-4">{{ indicador('bi-exclamation-octagon', 'Atrasadas', contagem.get('Atrasada', 0), '', 'danger') }}</div>
+</div>
+
+<form class="card card-body mb-3 filtros" method="get">
+  <div class="row g-2 align-items-end">
+    <div class="col-6 col-md-4"><label class="form-label small mb-1">Status</label>
+      <select class="form-select" name="status" data-auto-submit>{{ opcoes(CH.STATUS_META, status, 'Todos') }}</select></div>
+    <div class="col-6 col-md-4"><label class="form-label small mb-1">Matéria</label>
+      <select class="form-select" name="materia" data-auto-submit>{{ opcoes_materias(materias, materia_id, 'Todas') }}</select></div>
+    <div class="col-md-2"><a class="btn btn-light w-100" href="{{ url_for('metas.listar') }}"><i class="bi bi-x-lg me-1"></i>Limpar</a></div>
+  </div>
+</form>
+
+{% if pag.items %}
+<div class="row g-3">
+  {% for m in pag.items %}
+  {% set cor = 'success' if m.status == 'Concluída' else ('danger' if m.status == 'Atrasada' else 'primary') %}
+  {% set dias = (m.data_limite - hoje).days %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <h5 class="h6 mb-0">{{ m.titulo }}</h5>{{ badge(m.status) }}
+        </div>
+        <div class="small text-body-secondary mt-1">{{ CH.TIPOS_META[m.tipo] }}{% if m.materia %} · {{ m.materia.nome }}{% endif %}</div>
+        {% if m.descricao %}<p class="small mt-2 mb-0 clamp-3">{{ m.descricao }}</p>{% endif %}
+        <div class="mt-3">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>{{ m.progresso_atual|numero(1) }} de {{ m.valor_desejado|numero(1) }} {{ CH.UNIDADES_META[m.tipo] }}</span>
+            <strong>{{ m.percentual }}%</strong>
+          </div>
+          <div class="progress" role="progressbar" aria-valuenow="{{ m.percentual }}" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar bg-{{ cor }}" style="width: {{ m.percentual }}%"></div>
+          </div>
+        </div>
+        <div class="small text-body-secondary mt-2">
+          {{ m.data_inicio|data_br }} → {{ m.data_limite|data_br }}
+          {% if m.status == 'Em andamento' %}· {{ 'termina hoje' if dias == 0 else (dias ~ ' dia(s) restante(s)') }}
+          {% elif m.status == 'Atrasada' %}· <span class="text-danger">venceu há {{ -dias }} dia(s)</span>{% endif %}
+        </div>
+        <div class="mt-auto pt-3 text-end">
+          <button class="btn btn-sm btn-outline-secondary" title="Editar" data-form-modal="#modal-meta"
+                  data-action="{{ url_for('metas.editar', id=m.id) }}" data-titulo="Editar meta"
+                  data-valores='{{ m.para_form()|tojson }}'><i class="bi bi-pencil"></i></button>
+          {{ botao_excluir(url_for('metas.excluir', id=m.id), 'Excluir a meta “' ~ m.titulo ~ '”? Esta ação não pode ser desfeita.') }}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{{ paginacao(pag) }}
+{% else %}
+<div class="card"><div class="card-body">
+  {% call vazio('bi-bullseye', 'Nenhuma meta encontrada', 'Ex.: “Estudar 20 horas de Python no mês” ou “Concluir todos os conteúdos de SQL”.') %}{% endcall %}
+</div></div>
+{% endif %}
+
+{% call modal_form('modal-meta', 'modal-lg') %}
+  <div class="row g-3">
+    <div class="col-12"><label class="form-label">Título da meta *</label>
+      <input class="form-control" name="titulo" maxlength="160" required><div class="invalid-feedback">Informe o título.</div></div>
+    <div class="col-md-6"><label class="form-label">Tipo de meta *</label>
+      <select class="form-select" name="tipo" id="meta-tipo" required>
+        {% for k, v in CH.TIPOS_META.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
+      </select></div>
+    <div class="col-md-6"><label class="form-label">Matéria <span class="text-body-secondary">(opcional)</span></label>
+      <select class="form-select" name="materia_id">{{ opcoes_materias(materias, None, 'Todas / geral') }}</select></div>
+    <div class="col-md-4"><label class="form-label">Valor desejado * <span class="text-body-secondary" id="meta-unidade">(h)</span></label>
+      <input class="form-control" type="number" name="valor_desejado" min="0.01" step="any" required><div class="invalid-feedback">Informe um valor maior que zero.</div></div>
+    <div class="col-md-4"><label class="form-label">Data de início *</label>
+      <input class="form-control" type="date" name="data_inicio" required></div>
+    <div class="col-md-4"><label class="form-label">Data limite *</label>
+      <input class="form-control" type="date" name="data_limite" required></div>
+    <div class="col-md-4 d-none" id="meta-progresso-box"><label class="form-label">Progresso atual</label>
+      <input class="form-control" type="number" name="progresso_atual" min="0" step="any">
+      <div class="form-text">Na mesma unidade do valor desejado.</div></div>
+    <div class="col-12"><div class="form-text" id="meta-dica"></div></div>
+    <div class="col-12"><label class="form-label">Descrição</label>
+      <textarea class="form-control" name="descricao" rows="2"></textarea></div>
+  </div>
+{% endcall %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var tipo = document.getElementById('meta-tipo');
+    var unidades = {{ CH.UNIDADES_META|tojson }};
+    var dicas = {
+      horas: 'O progresso é calculado automaticamente a partir das suas sessões de estudo no período.',
+      dias: 'Conta os dias distintos com pelo menos uma sessão de estudo no período.',
+      conteudos: 'Conta os conteúdos concluídos (da matéria escolhida, ou de todas) no período.',
+      manual: 'Você informa o progresso manualmente (ex.: concluir um curso, em %).'
+    };
+    function atualizar() {
+      document.getElementById('meta-unidade').textContent = '(' + unidades[tipo.value] + ')';
+      document.getElementById('meta-dica').textContent = dicas[tipo.value] || '';
+      document.getElementById('meta-progresso-box').classList.toggle('d-none', tipo.value !== 'manual');
+    }
+    tipo.addEventListener('change', atualizar);
+    tipo.form.addEventListener('formpreenchido', atualizar);
+    atualizar();
+  });
+</script>
+{% endblock %}

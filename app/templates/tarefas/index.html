@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, opcoes, opcoes_materias, botao_excluir, vazio, paginacao, modal_form, campos_base, dados_conteudos with context %}
+{% block titulo %}Tarefas e atividades{% endblock %}
+
+{% macro cartao(t) %}
+<div class="kanban-card prioridade-{{ t.prioridade }}" draggable="true" data-id="{{ t.id }}"
+     data-url="{{ url_for('tarefas.alterar_status', id=t.id) }}">
+  <div class="d-flex justify-content-between align-items-start gap-2">
+    <div class="titulo">{{ t.titulo }}</div>
+    <div class="dropdown">
+      <button class="btn btn-sm btn-light btn-icon" style="width:28px;height:28px" data-bs-toggle="dropdown" aria-label="Opções"><i class="bi bi-three-dots-vertical"></i></button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><button class="dropdown-item" type="button" data-form-modal="#modal-tarefa"
+              data-action="{{ url_for('tarefas.editar', id=t.id) }}" data-titulo="Editar tarefa"
+              data-valores='{{ t.para_form()|tojson }}'><i class="bi bi-pencil me-2"></i>Editar</button></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><h6 class="dropdown-header">Mover para</h6></li>
+        {% for s in CH.STATUS_TAREFA if s != t.status %}
+        <li>
+          <form method="post" action="{{ url_for('tarefas.alterar_status', id=t.id) }}">
+            {{ campos_base() }}<input type="hidden" name="status" value="{{ s }}">
+            <button class="dropdown-item" type="submit"><i class="bi bi-arrow-right-short me-1"></i>{{ s }}</button>
+          </form>
+        </li>
+        {% endfor %}
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <form method="post" action="{{ url_for('tarefas.excluir', id=t.id) }}" class="form-excluir"
+                data-mensagem="Excluir a tarefa “{{ t.titulo }}”? Esta ação não pode ser desfeita.">
+            {{ campos_base() }}
+            <button class="dropdown-item text-danger" type="submit"><i class="bi bi-trash me-2"></i>Excluir</button>
+          </form>
+        </li>
+      </ul>
+    </div>
+  </div>
+  {% if t.descricao %}<div class="small text-body-secondary clamp-3 mt-1">{{ t.descricao }}</div>{% endif %}
+  <div class="small mt-2 d-flex flex-wrap gap-1 align-items-center">
+    {{ badge(t.prioridade) }}
+    <span class="badge text-bg-light border text-truncate" style="max-width:150px">{{ t.materia.nome }}</span>
+    {% if t.conteudo %}<span class="badge text-bg-light border text-truncate" style="max-width:150px" title="Conteúdo relacionado"><i class="bi bi-list-ol me-1"></i>{{ t.conteudo.nome }}</span>{% endif %}
+  </div>
+  <div class="small mt-2 d-flex justify-content-between text-body-secondary">
+    <span class="{{ 'text-danger fw-semibold' if t.atrasada }}">
+      {% if t.prazo %}<i class="bi bi-calendar-event me-1"></i>{{ t.prazo|data_br }}{{ ' · atrasada' if t.atrasada }}{% else %}Sem prazo{% endif %}
+    </span>
+    {% if t.tempo_estimado %}<span><i class="bi bi-clock me-1"></i>{{ t.tempo_estimado|duracao }}</span>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% block conteudo %}
+{% set qs = {'q': filtros.q, 'materia': filtros.materia or '', 'prioridade': filtros.prioridade, 'status': filtros.status} %}
+<div class="page-header">
+  <h2>Tarefas e atividades</h2>
+  <div class="btn-group ms-lg-3" role="group" aria-label="Visualização">
+    <a class="btn btn-sm {{ 'btn-primary' if visao == 'quadro' else 'btn-outline-primary' }}" href="{{ url_for('tarefas.index', visao='quadro', **qs) }}"><i class="bi bi-kanban me-1"></i>Quadro</a>
+    <a class="btn btn-sm {{ 'btn-primary' if visao == 'lista' else 'btn-outline-primary' }}" href="{{ url_for('tarefas.index', visao='lista', **qs) }}"><i class="bi bi-table me-1"></i>Lista</a>
+  </div>
+  <button class="btn btn-primary ms-auto" data-form-modal="#modal-tarefa"
+          data-action="{{ url_for('tarefas.criar') }}" data-titulo="Nova tarefa"
+          data-valores='{{ {"prioridade": "Média", "status": "A fazer"}|tojson }}'>
+    <i class="bi bi-plus-lg me-1"></i>Nova tarefa
+  </button>
+</div>
+
+<form class="card card-body mb-3 filtros" method="get">
+  <input type="hidden" name="visao" value="{{ visao }}">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3"><label class="form-label small mb-1">Pesquisar</label>
+      <input class="form-control" type="search" name="q" value="{{ filtros.q }}" placeholder="Título ou descrição…"></div>
+    <div class="col-6 col-md-3"><label class="form-label small mb-1">Matéria</label>
+      <select class="form-select" name="materia" data-auto-submit>{{ opcoes_materias(materias, filtros.materia, 'Todas') }}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1">Prioridade</label>
+      <select class="form-select" name="prioridade" data-auto-submit>{{ opcoes(CH.PRIORIDADES, filtros.prioridade, 'Todas') }}</select></div>
+    {% if visao == 'lista' %}
+    <div class="col-6 col-md-2"><label class="form-label small mb-1">Status</label>
+      <select class="form-select" name="status" data-auto-submit>{{ opcoes(CH.STATUS_TAREFA, filtros.status, 'Todos') }}</select></div>
+    {% endif %}
+    <div class="col-6 col-md-2 d-flex gap-2">
+      <button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-search"></i></button>
+      <a class="btn btn-light flex-fill" href="{{ url_for('tarefas.index', visao=visao) }}" title="Limpar filtros"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </div>
+</form>
+
+{% if visao == 'quadro' %}
+<div class="kanban" id="kanban">
+  {% for status, tarefas in colunas.items() %}
+  <div class="kanban-col">
+    <div class="kanban-col-header">
+      <span>{{ badge(status) }}</span>
+      <span class="badge rounded-pill text-bg-light border kanban-count">{{ tarefas|length }}</span>
+    </div>
+    <div class="kanban-col-body" data-status="{{ status }}">
+      {% for t in tarefas %}{{ cartao(t) }}{% endfor %}
+      <div class="kanban-vazio small text-body-secondary text-center py-3 {{ 'd-none' if tarefas }}">Arraste tarefas para cá</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<div class="small text-body-secondary mt-2"><i class="bi bi-info-circle me-1"></i>Arraste os cartões entre as colunas para mudar o status. Em telas de toque, use o menu <i class="bi bi-three-dots-vertical"></i> do cartão → “Mover para”.</div>
+
+{% else %}
+<div class="card table-card">
+  {% if pag.items %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Tarefa</th><th>Matéria</th><th>Prioridade</th><th>Prazo</th><th>Tempo est.</th><th style="min-width:150px">Status</th><th class="text-end">Ações</th></tr></thead>
+      <tbody>
+      {% for t in pag.items %}
+        <tr>
+          <td><div class="fw-semibold">{{ t.titulo }}</div>
+            {% if t.descricao %}<div class="small text-body-secondary clamp-3" style="max-width:360px">{{ t.descricao }}</div>{% endif %}
+            {% if t.conteudo %}<div class="small text-body-secondary"><i class="bi bi-list-ol me-1"></i>{{ t.conteudo.nome }}</div>{% endif %}</td>
+          <td>{{ t.materia.nome }}</td>
+          <td>{{ badge(t.prioridade) }}</td>
+          <td class="{{ 'text-danger fw-semibold' if t.atrasada }}">{{ t.prazo|data_br }}{{ ' (atrasada)' if t.atrasada }}</td>
+          <td>{{ (t.tempo_estimado|duracao) if t.tempo_estimado else '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('tarefas.alterar_status', id=t.id) }}">
+              {{ campos_base() }}
+              <select class="form-select form-select-sm" name="status" data-auto-submit aria-label="Status">{{ opcoes(CH.STATUS_TAREFA, t.status) }}</select>
+            </form>
+          </td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" data-form-modal="#modal-tarefa"
+                    data-action="{{ url_for('tarefas.editar', id=t.id) }}" data-titulo="Editar tarefa"
+                    data-valores='{{ t.para_form()|tojson }}'><i class="bi bi-pencil"></i></button>
+            {{ botao_excluir(url_for('tarefas.excluir', id=t.id), 'Excluir a tarefa “' ~ t.titulo ~ '”? Esta ação não pode ser desfeita.') }}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body pt-0">{{ paginacao(pag) }}</div>
+  {% else %}
+    {% call vazio('bi-check2-square', 'Nenhuma tarefa encontrada', 'Crie tarefas para organizar o que precisa estudar e entregar.') %}{% endcall %}
+  {% endif %}
+</div>
+{% endif %}
+
+{% call modal_form('modal-tarefa', 'modal-lg') %}
+  <div class="row g-3">
+    <div class="col-12"><label class="form-label">Título *</label>
+      <input class="form-control" name="titulo" maxlength="160" required><div class="invalid-feedback">Informe o título.</div></div>
+    <div class="col-md-6"><label class="form-label">Matéria *</label>
+      <select class="form-select" name="materia_id" id="tarefa-materia" required>{{ opcoes_materias(materias, None, 'Selecione…') }}</select>
+      <div class="invalid-feedback">Selecione a matéria.</div></div>
+    <div class="col-md-6"><label class="form-label">Conteúdo relacionado <span class="text-body-secondary">(opcional)</span></label>
+      <select class="form-select" name="conteudo_id" id="tarefa-conteudo"><option value="">—</option></select></div>
+    <div class="col-md-4"><label class="form-label">Prioridade *</label>
+      <select class="form-select" name="prioridade" required>{{ opcoes(CH.PRIORIDADES) }}</select></div>
+    <div class="col-md-4"><label class="form-label">Prazo</label>
+      <input class="form-control" type="date" name="prazo"></div>
+    <div class="col-md-4"><label class="form-label">Tempo estimado (min)</label>
+      <input class="form-control" type="number" name="tempo_estimado" min="0" step="5"></div>
+    <div class="col-md-4"><label class="form-label">Status</label>
+      <select class="form-select" name="status">{{ opcoes(CH.STATUS_TAREFA) }}</select></div>
+    <div class="col-12"><label class="form-label">Descrição</label>
+      <textarea class="form-control" name="descricao" rows="3"></textarea></div>
+  </div>
+{% endcall %}
+{{ dados_conteudos() }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    vincularConteudos(document.getElementById('tarefa-materia'), document.getElementById('tarefa-conteudo'));
+  });
+</script>
+<script src="{{ url_for('static', filename='js/tarefas.js') }}"></script>
+{% endblock %}

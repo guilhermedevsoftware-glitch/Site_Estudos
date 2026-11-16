@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% from "_macros.html" import opcoes_materias, botao_excluir, vazio, paginacao, modal_form, dados_conteudos with context %}
+{% block titulo %}Cronômetro de estudos{% endblock %}
+
+{% block conteudo %}
+{% if not materias %}
+<div class="card"><div class="card-body">
+  {% call vazio('bi-stopwatch', 'Cadastre uma matéria primeiro', 'O cronômetro registra o tempo estudado em cada matéria.') %}
+    <a href="{{ url_for('materias.listar') }}" class="btn btn-primary">Ir para Minhas matérias</a>
+  {% endcall %}
+</div></div>
+{% else %}
+<div class="row g-3" id="timer-app"
+     data-url-salvar="{{ url_for('cronometro.salvar_sessao') }}"
+     data-url-intervalos="{{ url_for('cronometro.salvar_intervalos') }}"
+     data-materia-inicial="{{ materia_inicial or '' }}" data-conteudo-inicial="{{ conteudo_inicial or '' }}">
+
+  <div class="col-lg-7">
+    <div class="card timer-card foco" id="t-card">
+      <div class="card-body text-center py-4 py-md-5">
+        <span class="timer-fase foco mb-3" id="t-fase">Pronto para começar</span>
+        <div class="timer-display my-3" id="t-display" aria-live="off">00:00</div>
+
+        <div class="mx-auto mb-3 d-none" id="t-barra-box" style="max-width:420px">
+          <div class="progress"><div class="progress-bar" id="t-barra" style="width:0%"></div></div>
+          <div class="small text-body-secondary mt-1" id="t-ciclo"></div>
+        </div>
+        <div class="small text-body-secondary mb-3" id="t-foco-info"></div>
+
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+          <button class="btn btn-primary btn-lg px-4" id="t-iniciar"><i class="bi bi-play-fill me-1"></i>Iniciar</button>
+          <button class="btn btn-warning btn-lg px-4 d-none" id="t-pausar"><i class="bi bi-pause-fill me-1"></i>Pausar</button>
+          <button class="btn btn-primary btn-lg px-4 d-none" id="t-continuar"><i class="bi bi-play-fill me-1"></i>Continuar</button>
+          <button class="btn btn-outline-secondary btn-lg d-none" id="t-pular" title="Pular para a próxima fase do Pomodoro"><i class="bi bi-skip-forward-fill me-1"></i>Pular fase</button>
+          <button class="btn btn-success btn-lg px-4 d-none" id="t-finalizar"><i class="bi bi-check2-circle me-1"></i>Finalizar sessão</button>
+          <button class="btn btn-outline-danger btn-lg d-none" id="t-descartar" title="Descartar sem salvar"><i class="bi bi-x-lg"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">Sessão de estudo</div>
+      <div class="card-body">
+        <div class="mb-3"><label class="form-label">Matéria *</label>
+          <select class="form-select" id="t-materia">{{ opcoes_materias(materias, None, 'Selecione a matéria…') }}</select></div>
+        <div class="mb-3"><label class="form-label">Conteúdo estudado</label>
+          <select class="form-select" id="t-conteudo"><option value="">—</option></select></div>
+        <div class="mb-3"><label class="form-label">Observações</label>
+          <textarea class="form-control" id="t-obs" rows="2" placeholder="O que você estudou ou quer lembrar?"></textarea></div>
+        <label class="form-label d-block">Modo</label>
+        <div class="btn-group w-100" role="group">
+          <input type="radio" class="btn-check" name="t-modo" id="modo-livre" value="livre" checked>
+          <label class="btn btn-outline-primary" for="modo-livre"><i class="bi bi-stopwatch me-1"></i>Cronômetro livre</label>
+          <input type="radio" class="btn-check" name="t-modo" id="modo-pomodoro" value="pomodoro">
+          <label class="btn btn-outline-primary" for="modo-pomodoro"><i class="bi bi-hourglass-split me-1"></i>Pomodoro</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Intervalos do Pomodoro <span class="fw-normal small text-body-secondary">(minutos)</span></div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-6"><label class="form-label small mb-1">Foco</label><input class="form-control" type="number" id="p-foco" min="1" max="180" value="{{ pomodoro.foco }}"></div>
+          <div class="col-6"><label class="form-label small mb-1">Descanso curto</label><input class="form-control" type="number" id="p-pausa" min="1" max="60" value="{{ pomodoro.pausa }}"></div>
+          <div class="col-6"><label class="form-label small mb-1">Descanso longo</label><input class="form-control" type="number" id="p-longa" min="1" max="120" value="{{ pomodoro.longa }}"></div>
+          <div class="col-6"><label class="form-label small mb-1">Focos até o longo</label><input class="form-control" type="number" id="p-ciclos" min="2" max="10" value="{{ pomodoro.ciclos }}"></div>
+        </div>
+        <div class="form-text mt-2">Salvo automaticamente. Padrão: 25 / 5 / 15. Só o tempo de <strong>foco</strong> é contado como estudo.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: finalizar sessão -->
+<div class="modal fade" id="modal-finalizar" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-check2-circle text-success me-2"></i>Finalizar sessão</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Voltar"></button></div>
+      <div class="modal-body">
+        <p class="fw-semibold mb-3" id="f-resumo"></p>
+        <div class="mb-3"><label class="form-label">Duração de estudo (minutos)</label>
+          <input class="form-control" type="number" id="f-duracao" min="1" max="1440">
+          <div class="form-text">Calculada pelo cronômetro; ajuste se precisar.</div></div>
+        <div><label class="form-label">Observações</label><textarea class="form-control" id="f-obs" rows="3"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Voltar (continuar pausado)</button>
+        <button type="button" class="btn btn-success" id="f-salvar"><i class="bi bi-save me-1"></i>Salvar sessão</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Histórico -->
+<div class="d-flex flex-wrap align-items-center gap-2 mt-4 mb-2">
+  <h5 class="mb-0">Histórico de sessões</h5>
+  {% if materias %}
+  <button class="btn btn-sm btn-outline-primary ms-auto" data-form-modal="#modal-sessao"
+          data-action="{{ url_for('cronometro.criar_manual') }}" data-titulo="Registrar sessão manualmente"
+          data-valores='{{ {"data": hoje.isoformat()}|tojson }}'><i class="bi bi-plus-lg me-1"></i>Registrar manualmente</button>
+  {% endif %}
+</div>
+<div class="card table-card">
+  {% if pag.items %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Data</th><th>Matéria / Conteúdo</th><th>Horário</th><th>Duração</th><th>Observações</th><th class="text-end">Ações</th></tr></thead>
+      <tbody>
+      {% for s in pag.items %}
+        <tr>
+          <td class="text-nowrap">{{ s.data|data_br }}</td>
+          <td><div class="fw-semibold">{{ s.materia.nome }}</div>{% if s.conteudo %}<div class="small text-body-secondary">{{ s.conteudo.nome }}</div>{% endif %}</td>
+          <td class="text-nowrap">{{ s.inicio|hora }} – {{ s.fim|hora }}</td>
+          <td class="fw-semibold text-nowrap">{{ s.duracao_min|duracao }}</td>
+          <td class="small text-body-secondary" style="max-width:280px"><div class="clamp-3">{{ s.observacoes or '' }}</div></td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" data-form-modal="#modal-sessao"
+                    data-action="{{ url_for('cronometro.editar_sessao', id=s.id) }}" data-titulo="Editar sessão"
+                    data-valores='{{ s.para_form()|tojson }}'><i class="bi bi-pencil"></i></button>
+            {{ botao_excluir(url_for('cronometro.excluir_sessao', id=s.id), 'Excluir esta sessão de ' ~ (s.duracao_min|duracao) ~ ' de ' ~ s.materia.nome ~ '? As horas estudadas serão descontadas dos relatórios.') }}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body pt-0">{{ paginacao(pag) }}</div>
+  {% else %}
+    {% call vazio('bi-clock-history', 'Nenhuma sessão registrada', 'Inicie o cronômetro ou registre uma sessão manualmente.') %}{% endcall %}
+  {% endif %}
+</div>
+
+{% if materias %}
+{% call modal_form('modal-sessao') %}
+  <div class="row g-3">
+    <div class="col-12"><label class="form-label">Matéria *</label>
+      <select class="form-select" name="materia_id" id="s-materia" required>{{ opcoes_materias(materias, None, 'Selecione…') }}</select></div>
+    <div class="col-12"><label class="form-label">Conteúdo</label>
+      <select class="form-select" name="conteudo_id" id="s-conteudo"><option value="">—</option></select></div>
+    <div class="col-md-4"><label class="form-label">Data *</label><input class="form-control" type="date" name="data" required></div>
+    <div class="col-6 col-md-4"><label class="form-label">Início *</label><input class="form-control" type="time" name="hora_inicio" required></div>
+    <div class="col-6 col-md-4"><label class="form-label">Término *</label><input class="form-control" type="time" name="hora_fim" required></div>
+    <div class="col-12"><label class="form-label">Duração efetiva (min)</label>
+      <input class="form-control" type="number" name="duracao_min" min="1" max="1440" placeholder="Vazio = término − início">
+      <div class="form-text">Use quando houve pausas e o tempo estudado foi menor que o intervalo.</div></div>
+    <div class="col-12"><label class="form-label">Observações</label><textarea class="form-control" name="observacoes" rows="2"></textarea></div>
+  </div>
+{% endcall %}
+{{ dados_conteudos() }}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if materias %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    vincularConteudos(document.getElementById('s-materia'), document.getElementById('s-conteudo'));
+  });
+</script>
+{% endif %}
+{% endblock %}

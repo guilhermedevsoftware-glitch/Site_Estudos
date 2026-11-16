@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, opcoes, botao_excluir, vazio, modal_form, campos_base with context %}
+{% block titulo %}Conteúdos · {{ materia.nome }}{% endblock %}
+{% block cabecalho %}Conteúdos de estudo{% endblock %}
+
+{% block conteudo %}
+<div class="page-header">
+  <a href="{{ url_for('materias.listar') }}" class="btn btn-light btn-icon" title="Voltar às matérias"><i class="bi bi-arrow-left"></i></a>
+  <div>
+    <h2>{{ materia.nome }}</h2>
+    <div class="small text-body-secondary">{{ materia.categoria }} · {{ badge(materia.nivel) }} {{ badge(materia.status) }}</div>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    <a href="{{ url_for('cronometro.index', materia=materia.id) }}" class="btn btn-outline-primary"><i class="bi bi-play-fill me-1"></i>Estudar</a>
+    <button class="btn btn-primary" data-form-modal="#modal-conteudo"
+            data-action="{{ url_for('conteudos.criar', materia_id=materia.id) }}" data-titulo="Novo conteúdo"
+            data-valores='{{ {"status": "Não iniciado", "ordem": ""}|tojson }}'>
+      <i class="bi bi-plus-lg me-1"></i>Novo conteúdo
+    </button>
+  </div>
+</div>
+
+{% if materia.conteudos %}
+<div class="card mb-3"><div class="card-body py-3">
+  {% set total = materia.conteudos|length %}
+  {% set pct = (concluidos / total * 100)|round|int %}
+  <div class="d-flex justify-content-between small mb-1">
+    <span>{{ concluidos }} de {{ total }} conteúdos concluídos</span>
+    <span>{{ pct }}% · tempo estimado total: {{ tempo_total|duracao }}</span>
+  </div>
+  <div class="progress"><div class="progress-bar" style="width:{{ pct }}%"></div></div>
+</div></div>
+{% endif %}
+
+<div class="card table-card">
+  {% if materia.conteudos %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" id="tabela-conteudos"
+           data-url-reordenar="{{ url_for('conteudos.reordenar', materia_id=materia.id) }}">
+      <thead><tr>
+        <th style="width:36px"></th><th style="width:60px">Ordem</th><th>Conteúdo</th>
+        <th>Tempo estimado</th><th style="min-width:160px">Status</th><th>Conclusão</th><th class="text-end">Ações</th>
+      </tr></thead>
+      <tbody>
+      {% for c in materia.conteudos %}
+        <tr draggable="true" data-id="{{ c.id }}">
+          <td><i class="bi bi-grip-vertical drag-handle" title="Arraste para reordenar"></i></td>
+          <td class="fw-semibold ordem-num">{{ c.ordem }}</td>
+          <td>
+            <div class="fw-semibold">{{ c.nome }}</div>
+            {% if c.descricao %}<div class="small text-body-secondary clamp-3" style="max-width:420px">{{ c.descricao }}</div>{% endif %}
+          </td>
+          <td>{{ (c.tempo_estimado|duracao) if c.tempo_estimado else '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('conteudos.alterar_status', id=c.id) }}">
+              {{ campos_base() }}
+              <select class="form-select form-select-sm" name="status" data-auto-submit aria-label="Status">{{ opcoes(CH.STATUS_CONTEUDO, c.status) }}</select>
+            </form>
+          </td>
+          <td>{{ c.data_conclusao|data_br }}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('cronometro.index', materia=materia.id, conteudo=c.id) }}" title="Estudar este conteúdo"><i class="bi bi-play-fill"></i></a>
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" data-form-modal="#modal-conteudo"
+                    data-action="{{ url_for('conteudos.editar', id=c.id) }}" data-titulo="Editar conteúdo"
+                    data-valores='{{ c.para_form()|tojson }}'><i class="bi bi-pencil"></i></button>
+            {{ botao_excluir(url_for('conteudos.excluir', id=c.id),
+               'Excluir o conteúdo “' ~ c.nome ~ '”? As tarefas e sessões de estudo ligadas a ele serão mantidas, sem vínculo com o conteúdo.') }}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-body-secondary bg-transparent"><i class="bi bi-info-circle me-1"></i>Arraste as linhas pelo ícone <i class="bi bi-grip-vertical"></i> para reorganizar a sequência de aprendizagem.</div>
+  {% else %}
+    {% call vazio('bi-list-ol', 'Nenhum conteúdo cadastrado', 'Monte a sequência de aprendizagem desta matéria adicionando seus assuntos.') %}{% endcall %}
+  {% endif %}
+</div>
+
+{% call modal_form('modal-conteudo', 'modal-lg') %}
+  <div class="row g-3">
+    <div class="col-md-9"><label class="form-label">Nome do conteúdo *</label>
+      <input class="form-control" name="nome" maxlength="160" required><div class="invalid-feedback">Informe o nome.</div></div>
+    <div class="col-md-3"><label class="form-label">Ordem de estudo</label>
+      <input class="form-control" type="number" name="ordem" min="1" placeholder="Último"></div>
+    <div class="col-12"><label class="form-label">Descrição</label>
+      <textarea class="form-control" name="descricao" rows="2"></textarea></div>
+    <div class="col-md-4"><label class="form-label">Tempo estimado (min)</label>
+      <input class="form-control" type="number" name="tempo_estimado" min="0" step="5"></div>
+    <div class="col-md-4"><label class="form-label">Status *</label>
+      <select class="form-select" name="status" required>{{ opcoes(CH.STATUS_CONTEUDO) }}</select></div>
+    <div class="col-md-4"><label class="form-label">Data de conclusão</label>
+      <input class="form-control" type="date" name="data_conclusao"><div class="form-text">Se vazia e o status for “Concluído”, usa hoje.</div></div>
+  </div>
+{% endcall %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/conteudos.js') }}"></script>
+{% endblock %}

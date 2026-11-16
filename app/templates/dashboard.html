@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% from "_macros.html" import indicador, badge, campos_base, vazio with context %}
+{% block titulo %}Dashboard{% endblock %}
+
+{% block conteudo %}
+{% if ind.materias == 0 %}
+<div class="card border-primary-subtle mb-4">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <div class="stat-icon bg-primary-subtle text-primary-emphasis" style="width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;"><i class="bi bi-rocket-takeoff"></i></div>
+    <div class="flex-grow-1">
+      <h5 class="mb-1">Bem-vindo ao StudyFlow!</h5>
+      <p class="mb-0 text-body-secondary">Comece cadastrando suas matérias ou, se preferir, carregue algumas matérias de exemplo (opcional) para conhecer o sistema.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('materias.listar') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Cadastrar matéria</a>
+      <form method="post" action="{{ url_for('dashboard.carregar_dados_exemplo') }}">
+        {{ campos_base() }}
+        <button class="btn btn-outline-primary" type="submit"><i class="bi bi-magic me-1"></i>Carregar matérias de exemplo</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl-3">{{ indicador('bi-sun', 'Estudado hoje', ind.hoje|duracao, 'Meta diária: ' ~ (cfg.meta_diaria_horas|float|numero(1)) ~ ' h', 'primary') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-calendar-week', 'Na semana', ind.semana|duracao, 'Meta semanal: ' ~ (cfg.meta_semanal_horas|float|numero(1)) ~ ' h', 'info') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-calendar-month', 'No mês', ind.mes|duracao, '', 'primary') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-journal-bookmark', 'Matérias', ind.materias, 'cadastradas', 'secondary') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-list-task', 'Tarefas pendentes', ind.pendentes, '', 'warning') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-check2-circle', 'Tarefas concluídas', ind.concluidas, '', 'success') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-bullseye', 'Metas em andamento', ind.metas_andamento, '', 'primary') }}</div>
+  <div class="col-6 col-xl-3">
+    <div class="card stat-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-baseline">
+          <div class="stat-label">Conclusão das atividades</div>
+          <div class="stat-value fs-4">{{ ind.percentual }}%</div>
+        </div>
+        <div class="progress mt-2" role="progressbar" aria-valuenow="{{ ind.percentual }}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar" style="width: {{ ind.percentual }}%"></div>
+        </div>
+        <div class="stat-detail mt-1">Tarefas e atividades do planejamento</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-sun me-2 text-primary"></i>Meu Dia de Estudos</span>
+        <span class="small text-body-secondary fw-normal">{{ hoje|data_br }}</span>
+      </div>
+      <div class="card-body">
+        {% if atividades_hoje or tarefas_hoje %}
+          {% if atividades_hoje %}
+          <h6 class="text-body-secondary small text-uppercase">Atividades programadas</h6>
+          <ul class="list-group list-group-flush mb-3">
+            {% for a in atividades_hoje %}
+            <li class="list-group-item px-0 d-flex align-items-center gap-3">
+              <div class="text-center" style="min-width:86px">
+                <div class="fw-semibold">{{ a.inicio|hora }}</div>
+                <div class="small text-body-secondary">até {{ a.fim|hora }}</div>
+              </div>
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold {{ 'text-decoration-line-through text-body-secondary' if a.status == 'Concluída' }}">{{ a.titulo }}</div>
+                <div class="small text-body-secondary">{{ a.materia.nome }} · {{ a.duracao_min|duracao }} {{ badge(a.status) if a.status != 'Planejada' }}</div>
+              </div>
+              <div class="d-flex gap-1">
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('cronometro.index', materia=a.materia_id) }}" title="Iniciar cronômetro"><i class="bi bi-play-fill"></i></a>
+                <form method="post" action="{{ url_for('planejamento.alternar_conclusao', id=a.id) }}">
+                  {{ campos_base() }}
+                  <button class="btn btn-sm {{ 'btn-success' if a.status == 'Concluída' else 'btn-outline-success' }}" title="{{ 'Reabrir' if a.status == 'Concluída' else 'Marcar como concluída' }}"><i class="bi bi-check-lg"></i></button>
+                </form>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% if tarefas_hoje %}
+          <h6 class="text-body-secondary small text-uppercase">Tarefas com prazo hoje ou atrasadas</h6>
+          <ul class="list-group list-group-flush">
+            {% for t in tarefas_hoje %}
+            <li class="list-group-item px-0 d-flex align-items-center gap-3">
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold">{{ t.titulo }}</div>
+                <div class="small {{ 'text-danger' if t.atrasada else 'text-body-secondary' }}">{{ t.materia.nome }} · prazo {{ t.prazo|data_br }}{{ ' (atrasada)' if t.atrasada }}</div>
+              </div>
+              {{ badge(t.prioridade) }}
+              <form method="post" action="{{ url_for('tarefas.alterar_status', id=t.id) }}">
+                {{ campos_base() }}<input type="hidden" name="status" value="Concluída">
+                <button class="btn btn-sm btn-outline-success" title="Marcar como concluída"><i class="bi bi-check-lg"></i></button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        {% else %}
+          {% call vazio('bi-calendar-check', 'Nada programado para hoje', 'Planeje suas atividades de estudo no calendário ou inicie o cronômetro.') %}
+            <a href="{{ url_for('planejamento.index') }}" class="btn btn-sm btn-primary me-1"><i class="bi bi-calendar-plus me-1"></i>Planejar</a>
+            <a href="{{ url_for('cronometro.index') }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-stopwatch me-1"></i>Estudar agora</a>
+          {% endcall %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-bullseye me-2 text-primary"></i>Metas em andamento</div>
+      <div class="card-body">
+        {% if metas_ativas %}
+          {% for m in metas_ativas %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small"><span class="fw-semibold text-truncate">{{ m.titulo }}</span><span>{{ m.percentual }}%</span></div>
+            <div class="progress mt-1"><div class="progress-bar" style="width: {{ m.percentual }}%"></div></div>
+            <div class="small text-body-secondary mt-1">{{ m.progresso_atual|numero(1) }} de {{ m.valor_desejado|numero(1) }} {{ CH.UNIDADES_META[m.tipo] }} · até {{ m.data_limite|data_br }}</div>
+          </div>
+          {% endfor %}
+          <a href="{{ url_for('metas.listar') }}" class="small">Ver todas as metas</a>
+        {% else %}
+          {% call vazio('bi-bullseye', 'Sem metas em andamento', 'Defina uma meta para acompanhar sua evolução.') %}
+            <a href="{{ url_for('metas.listar') }}" class="btn btn-sm btn-outline-primary">Criar meta</a>
+          {% endcall %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6"><div class="card"><div class="card-header">Horas estudadas por dia da semana <span class="text-body-secondary fw-normal small">(semana atual)</span></div><div class="card-body"><div class="chart-box"><canvas id="g-semana"></canvas></div></div></div></div>
+  <div class="col-lg-6"><div class="card"><div class="card-header">Horas estudadas por matéria</div><div class="card-body"><div class="chart-box"><canvas id="g-materias"></canvas></div></div></div></div>
+  <div class="col-lg-7"><div class="card"><div class="card-header">Evolução mensal das horas <span class="text-body-secondary fw-normal small">(12 meses)</span></div><div class="card-body"><div class="chart-box"><canvas id="g-mensal"></canvas></div></div></div></div>
+  <div class="col-lg-5"><div class="card"><div class="card-header">Distribuição do tempo por categoria</div><div class="card-body"><div class="chart-box"><canvas id="g-categorias"></canvas></div></div></div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>window.DASH = {{ graficos|tojson }}; window.DASH_SEM_SESSOES = {{ 'true' if total_sessoes == 0 else 'false' }};</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

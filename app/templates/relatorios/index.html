@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_macros.html" import indicador, opcoes_materias, vazio with context %}
+{% block titulo %}Relatórios e evolução{% endblock %}
+
+{% block conteudo %}
+<div class="page-header">
+  <h2>Relatórios e evolução</h2>
+  <div class="ms-auto btn-group">
+    <a class="btn btn-outline-primary" href="{{ url_for('relatorios.exportar', tipo='sessoes', **args) }}"><i class="bi bi-download me-1"></i>CSV das sessões</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('relatorios.exportar', tipo='materias', **args) }}"><i class="bi bi-download me-1"></i>CSV por matéria</a>
+  </div>
+</div>
+
+<form class="card card-body mb-3 filtros" method="get" id="form-relatorio">
+  <div class="row g-2 align-items-end">
+    <div class="col-6 col-lg-2"><label class="form-label small mb-1">Período</label>
+      <select class="form-select" name="periodo" id="r-periodo">
+        {% for k, v in periodos.items() %}<option value="{{ k }}" {{ 'selected' if k == f.periodo }}>{{ v }}</option>{% endfor %}
+      </select></div>
+    <div class="col-6 col-lg-2 grupo-ref"><label class="form-label small mb-1">Data de referência</label>
+      <input class="form-control" type="date" name="ref" value="{{ f.ref.isoformat() }}"></div>
+    <div class="col-6 col-lg-2 grupo-pers"><label class="form-label small mb-1">De</label>
+      <input class="form-control" type="date" name="inicio" value="{{ f.ini_pers.isoformat() }}"></div>
+    <div class="col-6 col-lg-2 grupo-pers"><label class="form-label small mb-1">Até</label>
+      <input class="form-control" type="date" name="fim" value="{{ f.fim_pers.isoformat() }}"></div>
+    <div class="col-12 col-lg-3"><label class="form-label small mb-1">Matéria</label>
+      <select class="form-select" name="materia">{{ opcoes_materias(materias, f.materia_id, 'Todas as matérias') }}</select></div>
+    <div class="col-12 col-lg-auto d-flex gap-2">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-funnel me-1"></i>Aplicar</button>
+      <a class="btn btn-light" href="{{ url_for('relatorios.index') }}" title="Limpar"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </div>
+  <div class="small text-body-secondary mt-2"><i class="bi bi-calendar-range me-1"></i>Exibindo de <strong>{{ f.inicio|data_br }}</strong> a <strong>{{ f.fim|data_br }}</strong>.</div>
+</form>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl-3">{{ indicador('bi-clock-history', 'Total estudado', d.total|duracao, d.sessoes ~ ' sessão(ões)', 'primary') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-calendar-day', 'Média diária', d.media_diaria|duracao, 'por dia do período', 'info') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-calendar-week', 'Média semanal', d.media_semanal|duracao, 'por semana', 'primary') }}</div>
+  <div class="col-6 col-xl-3">{{ indicador('bi-award', 'Maior dedicação', d.ranking[0].nome if d.ranking else '—', (d.ranking[0].minutos|duracao) if d.ranking else 'sem sessões no período', 'warning') }}</div>
+  <div class="col-4">{{ indicador('bi-list-check', 'Conteúdos concluídos', d.conteudos, '', 'success') }}</div>
+  <div class="col-4">{{ indicador('bi-check2-square', 'Tarefas concluídas', d.tarefas, '', 'success') }}</div>
+  <div class="col-4">{{ indicador('bi-trophy', 'Metas alcançadas', d.metas, 'com prazo no período', 'success') }}</div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card"><div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span>Horas estudadas por {{ d.graficos.serie.granularidade }}</span>
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn btn-outline-primary active" data-modo-serie="diario">Por período</button>
+        <button type="button" class="btn btn-outline-primary" data-modo-serie="acumulado">Acumulado</button>
+      </div></div>
+      <div class="card-body"><div class="chart-box tall"><canvas id="r-serie"></canvas></div></div></div>
+  </div>
+  <div class="col-lg-6"><div class="card"><div class="card-header">Distribuição por matéria</div><div class="card-body"><div class="chart-box"><canvas id="r-materias"></canvas></div></div></div></div>
+  <div class="col-lg-6"><div class="card"><div class="card-header">Horas por dia da semana</div><div class="card-body"><div class="chart-box"><canvas id="r-semana"></canvas></div></div></div></div>
+  <div class="col-lg-6"><div class="card"><div class="card-header">Por categoria de conhecimento</div><div class="card-body"><div class="chart-box"><canvas id="r-categorias"></canvas></div></div></div></div>
+  <div class="col-lg-6">
+    <div class="card h-100"><div class="card-header">Matérias com maior dedicação</div>
+      {% if d.ranking %}
+      <div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>#</th><th>Matéria</th><th>Tempo</th><th style="min-width:120px">% do total</th></tr></thead>
+        <tbody>{% for r in d.ranking %}
+          <tr><td>{{ loop.index }}</td><td><div class="fw-semibold">{{ r.nome }}</div><div class="small text-body-secondary">{{ r.categoria }}</div></td>
+            <td class="text-nowrap">{{ r.minutos|duracao }}</td>
+            <td><div class="progress"><div class="progress-bar" style="width:{{ r.pct }}%"></div></div><div class="small">{{ r.pct }}%</div></td></tr>
+        {% endfor %}</tbody></table></div>
+      {% else %}<div class="card-body">{% call vazio('bi-bar-chart', 'Sem sessões no período', 'Ajuste os filtros ou registre sessões no cronômetro.') %}{% endcall %}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>window.REL = {{ d.graficos|tojson }};</script>
+<script src="{{ url_for('static', filename='js/relatorios.js') }}"></script>
+{% endblock %}

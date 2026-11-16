@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, opcoes, opcoes_materias, botao_excluir, vazio, paginacao, modal_form with context %}
+{% block titulo %}Flashcards{% endblock %}
+
+{% block conteudo %}
+{% set qs = {'materia': materia_id or '', 'dificuldade': dificuldade} %}
+<div class="page-header">
+  <h2>Flashcards</h2>
+  <ul class="nav nav-pills ms-lg-3">
+    <li class="nav-item"><a class="nav-link {{ 'active' if aba == 'estudar' }}" href="{{ url_for('flashcards.index', aba='estudar', **qs) }}"><i class="bi bi-lightning-charge me-1"></i>Estudar</a></li>
+    <li class="nav-item"><a class="nav-link {{ 'active' if aba == 'cartoes' }}" href="{{ url_for('flashcards.index', aba='cartoes', **qs) }}"><i class="bi bi-collection me-1"></i>Meus cartões ({{ total }})</a></li>
+  </ul>
+  {% if materias %}
+  <button class="btn btn-primary ms-auto" data-form-modal="#modal-flash"
+          data-action="{{ url_for('flashcards.criar') }}" data-titulo="Novo flashcard"
+          data-valores='{{ {"materia_id": materia_id or ""}|tojson }}'>
+    <i class="bi bi-plus-lg me-1"></i>Novo flashcard
+  </button>
+  {% endif %}
+</div>
+
+{% if not materias %}
+<div class="card"><div class="card-body">
+  {% call vazio('bi-card-text', 'Cadastre uma matéria primeiro', 'Os flashcards são organizados por matéria.') %}
+    <a href="{{ url_for('materias.listar') }}" class="btn btn-primary">Ir para Minhas matérias</a>
+  {% endcall %}
+</div></div>
+{% else %}
+
+<form class="card card-body mb-3 filtros" method="get">
+  <input type="hidden" name="aba" value="{{ aba }}">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-5"><label class="form-label small mb-1">Matéria</label>
+      <select class="form-select" name="materia" data-auto-submit>
+        <option value="">Todas as matérias ({{ total }})</option>
+        {% for m in materias %}<option value="{{ m.id }}" {{ 'selected' if m.id == materia_id }}>{{ m.nome }} ({{ por_materia.get(m.id, 0) }})</option>{% endfor %}
+      </select></div>
+    <div class="col-md-4"><label class="form-label small mb-1">Dificuldade</label>
+      <select class="form-select" name="dificuldade" data-auto-submit>{{ opcoes(CH.DIFICULDADES, dificuldade, 'Todas') }}</select></div>
+    <div class="col-md-3"><a class="btn btn-light w-100" href="{{ url_for('flashcards.index', aba=aba) }}"><i class="bi bi-x-lg me-1"></i>Limpar</a></div>
+  </div>
+</form>
+
+{% if aba == 'estudar' %}
+  {% if cartoes %}
+  <div id="estudo" data-url-avaliar="{{ url_for('flashcards.avaliar', id=0) }}">
+    <div class="d-flex justify-content-between align-items-center mb-2 mx-auto" style="max-width:640px">
+      <div class="small text-body-secondary"><span id="fc-materia"></span></div>
+      <div class="d-flex align-items-center gap-2"><span id="fc-dif"></span><span class="small fw-semibold" id="fc-pos"></span></div>
+    </div>
+    <div class="flash-scene">
+      <div class="flash-card" id="fc-card" tabindex="0" role="button" aria-label="Virar cartão">
+        <div class="flash-face"><div class="small text-body-secondary mb-2">PERGUNTA</div><div class="flash-texto" id="fc-frente"></div>
+          <div class="small text-body-secondary mt-3"><i class="bi bi-hand-index me-1"></i>Clique ou pressione espaço para revelar</div></div>
+        <div class="flash-face verso"><div class="small text-primary mb-2">RESPOSTA</div><div class="flash-texto" id="fc-verso"></div></div>
+      </div>
+    </div>
+    <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
+      <button class="btn btn-light" id="fc-prev" title="Anterior (←)"><i class="bi bi-chevron-left"></i> Anterior</button>
+      <button class="btn btn-primary" id="fc-virar"><i class="bi bi-arrow-repeat me-1"></i>Virar</button>
+      <button class="btn btn-light" id="fc-next" title="Próximo (→)">Próximo <i class="bi bi-chevron-right"></i></button>
+      <button class="btn btn-outline-secondary" id="fc-embaralhar"><i class="bi bi-shuffle me-1"></i>Embaralhar</button>
+    </div>
+    <div class="text-center mt-4">
+      <div class="small text-body-secondary mb-2">Como foi lembrar desta resposta?</div>
+      <div class="btn-group" role="group">
+        <button class="btn btn-outline-success fc-avaliar" data-dif="Fácil"><i class="bi bi-emoji-smile me-1"></i>Fácil</button>
+        <button class="btn btn-outline-warning fc-avaliar" data-dif="Médio"><i class="bi bi-emoji-neutral me-1"></i>Médio</button>
+        <button class="btn btn-outline-danger fc-avaliar" data-dif="Difícil"><i class="bi bi-emoji-frown me-1"></i>Difícil</button>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card"><div class="card-body">
+    {% call vazio('bi-card-text', 'Nenhum flashcard para estudar', 'Crie cartões ou ajuste os filtros acima.') %}{% endcall %}
+  </div></div>
+  {% endif %}
+
+{% else %}
+<div class="card table-card">
+  {% if pag.items %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Matéria</th><th>Pergunta</th><th>Resposta</th><th>Dificuldade</th><th>Criado em</th><th class="text-end">Ações</th></tr></thead>
+      <tbody>
+      {% for c in pag.items %}
+        <tr>
+          <td class="fw-semibold text-nowrap">{{ c.materia.nome }}</td>
+          <td style="max-width:260px"><div class="clamp-3 pre-wrap">{{ c.pergunta }}</div></td>
+          <td style="max-width:260px"><div class="clamp-3 pre-wrap">{{ c.resposta }}</div></td>
+          <td>{{ badge(c.dificuldade) }}</td>
+          <td class="text-nowrap">{{ c.criado_em|data_br }}</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" data-form-modal="#modal-flash"
+                    data-action="{{ url_for('flashcards.editar', id=c.id) }}" data-titulo="Editar flashcard"
+                    data-valores='{{ c.para_form()|tojson }}'><i class="bi bi-pencil"></i></button>
+            {{ botao_excluir(url_for('flashcards.excluir', id=c.id), 'Excluir este flashcard? Esta ação não pode ser desfeita.') }}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body pt-0">{{ paginacao(pag) }}</div>
+  {% else %}
+    {% call vazio('bi-collection', 'Nenhum flashcard encontrado', 'Crie cartões de pergunta e resposta para memorizar o conteúdo.') %}{% endcall %}
+  {% endif %}
+</div>
+{% endif %}
+
+{% call modal_form('modal-flash') %}
+  <div class="row g-3">
+    <div class="col-12"><label class="form-label">Matéria *</label>
+      <select class="form-select" name="materia_id" required>{{ opcoes_materias(materias, None, 'Selecione…') }}</select>
+      <div class="invalid-feedback">Selecione a matéria.</div></div>
+    <div class="col-12"><label class="form-label">Pergunta *</label>
+      <textarea class="form-control" name="pergunta" rows="3" required></textarea><div class="invalid-feedback">Informe a pergunta.</div></div>
+    <div class="col-12"><label class="form-label">Resposta *</label>
+      <textarea class="form-control" name="resposta" rows="3" required></textarea><div class="invalid-feedback">Informe a resposta.</div></div>
+  </div>
+{% endcall %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if aba == 'estudar' and cartoes %}
+<script>window.CARTOES = {{ cartoes|tojson }};</script>
+<script src="{{ url_for('static', filename='js/flashcards.js') }}"></script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, opcoes, botao_excluir, vazio, paginacao, modal_form, campos_base with context %}
+{% block titulo %}Minhas matérias{% endblock %}
+
+{% block conteudo %}
+<div class="page-header">
+  <h2>Minhas matérias</h2>
+  <button class="btn btn-primary ms-auto" data-form-modal="#modal-materia"
+          data-action="{{ url_for('materias.criar') }}" data-titulo="Nova matéria"
+          data-valores='{{ {"categoria": "Outros", "nivel": "Iniciante", "status": "Não iniciado", "data_inicio": hoje.isoformat()}|tojson }}'>
+    <i class="bi bi-plus-lg me-1"></i>Nova matéria
+  </button>
+</div>
+
+<form class="card card-body mb-3 filtros" method="get">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-4"><label class="form-label small mb-1">Pesquisar por nome</label>
+      <input class="form-control" type="search" name="q" value="{{ busca }}" placeholder="Digite o nome…"></div>
+    <div class="col-6 col-md-3"><label class="form-label small mb-1">Categoria</label>
+      <select class="form-select" name="categoria" data-auto-submit>{{ opcoes(CH.CATEGORIAS, categoria, 'Todas') }}</select></div>
+    <div class="col-6 col-md-3"><label class="form-label small mb-1">Status</label>
+      <select class="form-select" name="status" data-auto-submit>{{ opcoes(CH.STATUS_MATERIA, status, 'Todos') }}</select></div>
+    <div class="col-md-2 d-flex gap-2">
+      <button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-search"></i></button>
+      <a class="btn btn-light flex-fill" href="{{ url_for('materias.listar') }}" title="Limpar filtros"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </div>
+</form>
+
+<div class="card table-card">
+  {% if pag.items %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr>
+        <th>Matéria</th><th>Categoria</th><th>Nível</th><th style="min-width:160px">Conteúdos</th>
+        <th style="min-width:170px">Horas estudadas</th><th>Status</th><th class="text-end">Ações</th>
+      </tr></thead>
+      <tbody>
+      {% for m in pag.items %}
+        {% set conc, tot = conteudos.get(m.id, (0, 0)) %}
+        {% set estudado = minutos.get(m.id, 0) %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ m.nome }}</div>
+            {% if m.descricao %}<div class="small text-body-secondary clamp-3" style="max-width:340px">{{ m.descricao }}</div>{% endif %}
+            <div class="small text-body-secondary">Início: {{ m.data_inicio|data_br }}</div>
+          </td>
+          <td>{{ m.categoria }}</td>
+          <td>{{ badge(m.nivel) }}</td>
+          <td>
+            {% if tot %}
+              {% set pct = (conc / tot * 100)|round|int %}
+              <div class="small">{{ conc }}/{{ tot }} concluídos</div>
+              <div class="progress"><div class="progress-bar" style="width:{{ pct }}%"></div></div>
+            {% else %}<span class="small text-body-secondary">Nenhum conteúdo</span>{% endif %}
+          </td>
+          <td>
+            <div class="small">{{ estudado|duracao }}{% if m.carga_horaria %} de {{ m.carga_horaria|numero(1) }} h{% endif %}</div>
+            {% if m.carga_horaria %}
+              {% set pct_h = ([estudado / 60 / m.carga_horaria * 100, 100]|min)|round|int %}
+              <div class="progress"><div class="progress-bar" style="width:{{ pct_h }}%"></div></div>
+            {% endif %}
+          </td>
+          <td>{{ badge(m.status) }}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('conteudos.listar', materia_id=m.id) }}" title="Gerenciar conteúdos"><i class="bi bi-list-ol"></i></a>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('cronometro.index', materia=m.id) }}" title="Estudar agora"><i class="bi bi-play-fill"></i></a>
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" data-form-modal="#modal-materia"
+                    data-action="{{ url_for('materias.editar', id=m.id) }}" data-titulo="Editar matéria"
+                    data-valores='{{ m.para_form()|tojson }}'><i class="bi bi-pencil"></i></button>
+            {{ botao_excluir(url_for('materias.excluir', id=m.id),
+               'Excluir a matéria “' ~ m.nome ~ '”? Todos os conteúdos, tarefas, atividades, sessões de estudo, anotações e flashcards dela também serão excluídos. Esta ação não pode ser desfeita.') }}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body pt-0">{{ paginacao(pag) }}</div>
+  {% else %}
+    {% call vazio('bi-journal-bookmark', 'Nenhuma matéria encontrada',
+       ('Tente outros filtros ou limpe a pesquisa.' if (busca or categoria or status) else 'Cadastre sua primeira matéria para começar a organizar seus estudos.')) %}
+      {% if not (busca or categoria or status) %}
+      <form method="post" action="{{ url_for('dashboard.carregar_dados_exemplo') }}" class="d-inline">
+        {{ campos_base() }}
+        <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-magic me-1"></i>Carregar matérias de exemplo</button>
+      </form>
+      {% endif %}
+    {% endcall %}
+  {% endif %}
+</div>
+
+{% call modal_form('modal-materia', 'modal-lg') %}
+  <div class="row g-3">
+    <div class="col-md-8"><label class="form-label">Nome da matéria *</label>
+      <input class="form-control" name="nome" maxlength="120" required><div class="invalid-feedback">Informe o nome.</div></div>
+    <div class="col-md-4"><label class="form-label">Data de início</label>
+      <input class="form-control" type="date" name="data_inicio"></div>
+    <div class="col-md-4"><label class="form-label">Categoria *</label>
+      <select class="form-select" name="categoria" required>{{ opcoes(CH.CATEGORIAS) }}</select></div>
+    <div class="col-md-4"><label class="form-label">Nível de conhecimento *</label>
+      <select class="form-select" name="nivel" required>{{ opcoes(CH.NIVEIS) }}</select></div>
+    <div class="col-md-4"><label class="form-label">Status *</label>
+      <select class="form-select" name="status" required>{{ opcoes(CH.STATUS_MATERIA) }}</select></div>
+    <div class="col-md-4"><label class="form-label">Carga horária planejada (h)</label>
+      <input class="form-control" type="number" name="carga_horaria" min="0" step="0.5" placeholder="Ex.: 40"></div>
+    <div class="col-12"><label class="form-label">Descrição</label>
+      <textarea class="form-control" name="descricao" rows="2"></textarea></div>
+    <div class="col-12"><label class="form-label">Objetivo de aprendizagem</label>
+      <textarea class="form-control" name="objetivo" rows="2" placeholder="O que você quer ser capaz de fazer ao concluir?"></textarea></div>
+  </div>
+{% endcall %}
+{% endblock %}

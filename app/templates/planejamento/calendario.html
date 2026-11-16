@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_macros.html" import opcoes_materias, vazio with context %}
+{% block titulo %}Planejamento semanal{% endblock %}
+
+{% block conteudo %}
+{% if not materias %}
+<div class="card"><div class="card-body">
+  {% call vazio('bi-calendar-x', 'Cadastre uma matéria primeiro', 'As atividades do planejamento precisam estar ligadas a uma matéria.') %}
+    <a href="{{ url_for('materias.listar') }}" class="btn btn-primary">Ir para Minhas matérias</a>
+  {% endcall %}
+</div></div>
+{% else %}
+<div class="cal-toolbar">
+  <div class="btn-group">
+    <button class="btn btn-outline-secondary" id="cal-prev" title="Anterior"><i class="bi bi-chevron-left"></i></button>
+    <button class="btn btn-outline-secondary" id="cal-hoje">Hoje</button>
+    <button class="btn btn-outline-secondary" id="cal-prox" title="Próximo"><i class="bi bi-chevron-right"></i></button>
+  </div>
+  <div class="cal-title" id="cal-titulo"></div>
+  <div class="btn-group ms-lg-auto" role="group" aria-label="Visualização">
+    <button class="btn btn-outline-primary" data-visao="dia">Dia</button>
+    <button class="btn btn-outline-primary" data-visao="semana">Semana</button>
+    <button class="btn btn-outline-primary" data-visao="mes">Mês</button>
+  </div>
+  <select class="form-select w-auto" id="cal-filtro" aria-label="Filtrar por matéria">
+    {{ opcoes_materias(materias, None, 'Todas as matérias') }}
+  </select>
+  <button class="btn btn-primary" id="cal-nova"><i class="bi bi-plus-lg me-1"></i>Nova atividade</button>
+</div>
+
+<div class="cal-wrap" id="cal" data-url="{{ url_for('planejamento.api_listar') }}"></div>
+<div class="small text-body-secondary mt-2">
+  <i class="bi bi-info-circle me-1"></i>Clique em um horário vazio para criar uma atividade. Arraste uma atividade para reorganizá-la (na visão Dia/Semana, puxe a borda inferior para ajustar a duração; na visão Mês, arraste para outro dia). Clique nela para editar ou excluir.
+</div>
+
+<div class="modal fade" id="modal-atividade" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <form class="modal-content" id="form-atividade" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="atv-modal-titulo">Nova atividade</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12"><label class="form-label">Título *</label>
+            <input class="form-control" name="titulo" maxlength="160" required><div class="invalid-feedback">Informe um título.</div></div>
+          <div class="col-md-7"><label class="form-label">Matéria *</label>
+            <select class="form-select" name="materia_id" required>{{ opcoes_materias(materias, None, 'Selecione…') }}</select>
+            <div class="invalid-feedback">Selecione a matéria.</div></div>
+          <div class="col-md-5"><label class="form-label">Status</label>
+            <select class="form-select" name="status">{% for s in CH.STATUS_ATIVIDADE %}<option>{{ s }}</option>{% endfor %}</select></div>
+          <div class="col-md-4"><label class="form-label">Data *</label>
+            <input class="form-control" type="date" name="data" required><div class="invalid-feedback">Informe a data.</div></div>
+          <div class="col-6 col-md-4"><label class="form-label">Início *</label>
+            <input class="form-control" type="time" name="hora_inicio" required></div>
+          <div class="col-6 col-md-4"><label class="form-label">Término *</label>
+            <input class="form-control" type="time" name="hora_fim" required></div>
+          <div class="col-12"><div class="small text-body-secondary">Tempo planejado: <strong id="atv-duracao">—</strong></div></div>
+          <div class="col-12"><label class="form-label">Descrição</label>
+            <textarea class="form-control" name="descricao" rows="2" placeholder="O que será estudado nesta atividade?"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-danger me-auto d-none" id="atv-excluir"><i class="bi bi-trash me-1"></i>Excluir</button>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if materias %}<script src="{{ url_for('static', filename='js/planejamento.js') }}"></script>{% endif %}
+{% endblock %}

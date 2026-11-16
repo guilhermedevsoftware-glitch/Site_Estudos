@@ -1,0 +1,41 @@
+{% extends "auth/base_auth.html" %}
+{% block titulo %}Códigos de recuperação{% endblock %}
+{% block classe_card %}larga{% endblock %}
+
+{% block conteudo %}
+<div id="area-codigos" data-usuario="{{ u.login }}">
+  {% if primeiro_acesso %}
+    <h1 class="h3 fw-bold mb-1"><i class="bi bi-check-circle text-success me-2"></i>Conta criada!</h1>
+    <p class="text-body-secondary">Falta um passo importante: guarde seus códigos de recuperação.</p>
+  {% else %}
+    <h1 class="h3 fw-bold mb-1"><i class="bi bi-key text-primary me-2"></i>Novos códigos de recuperação</h1>
+    <p class="text-body-secondary">Os códigos anteriores foram <strong>invalidados</strong>. Use apenas este conjunto.</p>
+  {% endif %}
+
+  <div class="alert alert-warning small">
+    <i class="bi bi-exclamation-triangle me-1"></i><strong>Esta é a única vez que os códigos aparecem.</strong>
+    Se você esquecer a senha, cada código permite redefini-la uma vez. Guarde-os fora do computador (papel ou gerenciador de senhas) e não os compartilhe.
+  </div>
+
+  <div class="codigo-grid mb-3">
+    {% for codigo in codigos %}<div class="codigo-item" data-codigo>{{ codigo }}</div>{% endfor %}
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 mb-4 no-print">
+    <button class="btn btn-outline-primary btn-sm" type="button" id="btn-copiar"><i class="bi bi-clipboard me-1"></i>Copiar</button>
+    <button class="btn btn-outline-primary btn-sm" type="button" id="btn-baixar"><i class="bi bi-download me-1"></i>Baixar .txt</button>
+    <button class="btn btn-outline-primary btn-sm" type="button" id="btn-imprimir"><i class="bi bi-printer me-1"></i>Imprimir</button>
+  </div>
+
+  <div class="no-print">
+    <div class="form-check mb-3">
+      <input class="form-check-input" type="checkbox" id="confirmou">
+      <label class="form-check-label" for="confirmou">Guardei meus códigos em um lugar seguro.</label>
+    </div>
+    <a class="btn btn-primary btn-lg w-100 disabled" id="btn-continuar" aria-disabled="true"
+       href="{{ url_for('dashboard.index') if primeiro_acesso else url_for('auth.conta') }}">
+      {{ 'Ir para o StudyFlow' if primeiro_acesso else 'Concluir' }}<i class="bi bi-arrow-right ms-2"></i>
+    </a>
+  </div>
+</div>
+{% endblock %}

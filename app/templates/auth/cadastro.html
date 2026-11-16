@@ -1,0 +1,36 @@
+{% extends "auth/base_auth.html" %}
+{% from "_macros.html" import campo_senha with context %}
+{% block titulo %}Criar conta{% endblock %}
+
+{% block conteudo %}
+<h1 class="h3 fw-bold mb-1">Crie sua conta</h1>
+<p class="text-body-secondary mb-4">Primeiro acesso ao StudyFlow. Esta será a única conta do sistema e ela protege todos os seus dados.</p>
+
+<form method="post" class="needs-validation" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-3">
+    <label class="form-label" for="nome">Seu nome</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+      <input class="form-control" id="nome" name="nome" value="{{ nome }}" autocomplete="name" minlength="2" maxlength="80" required autofocus>
+      <div class="invalid-feedback">Informe seu nome.</div>
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="login">Nome de usuário</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-at"></i></span>
+      <input class="form-control" id="login" name="login" value="{{ login }}" autocomplete="username" autocapitalize="none"
+             spellcheck="false" pattern="[A-Za-z0-9_.\-]{3,30}" minlength="3" maxlength="30" required>
+      <div class="invalid-feedback">3 a 30 caracteres: letras, números, ponto, hífen ou sublinhado.</div>
+    </div>
+    <div class="form-text">É o que você digitará para entrar.</div>
+  </div>
+  {{ campo_senha('senha', 'Senha', 'senha', autocomplete='new-password', forca=True) }}
+  {{ campo_senha('confirmacao', 'Confirmar senha', 'confirmacao', autocomplete='new-password', confirma_de='senha') }}
+  <div class="alert alert-info py-2 small">
+    <i class="bi bi-key me-1"></i>Ao concluir, você receberá <strong>códigos de recuperação</strong>. Eles são a única forma de redefinir a senha caso você a esqueça.
+  </div>
+  <button class="btn btn-primary btn-lg w-100" type="submit"><i class="bi bi-person-plus me-2"></i>Criar conta</button>
+</form>
+{% endblock %}

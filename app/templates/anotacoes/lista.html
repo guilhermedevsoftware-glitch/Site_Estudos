@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "_macros.html" import opcoes_materias, botao_excluir, vazio, paginacao, modal_form with context %}
+{% block titulo %}Anotações{% endblock %}
+
+{% block conteudo %}
+<div class="page-header">
+  <h2>Anotações</h2>
+  <button class="btn btn-primary ms-auto" data-form-modal="#modal-nota"
+          data-action="{{ url_for('anotacoes.criar') }}" data-titulo="Nova anotação" data-valores="{}">
+    <i class="bi bi-plus-lg me-1"></i>Nova anotação
+  </button>
+</div>
+
+<form class="card card-body mb-3 filtros" method="get">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-5"><label class="form-label small mb-1">Pesquisar</label>
+      <input class="form-control" type="search" name="q" value="{{ busca }}" placeholder="Título ou texto da anotação…"></div>
+    <div class="col-md-4"><label class="form-label small mb-1">Matéria</label>
+      <select class="form-select" name="materia" data-auto-submit>{{ opcoes_materias(materias, materia_id, 'Todas') }}</select></div>
+    <div class="col-md-3 d-flex gap-2">
+      <button class="btn btn-primary flex-fill" type="submit"><i class="bi bi-search"></i></button>
+      <a class="btn btn-light flex-fill" href="{{ url_for('anotacoes.listar') }}" title="Limpar filtros"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </div>
+</form>
+
+{% if pag.items %}
+<div class="row g-3">
+  {% for n in pag.items %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card nota-card h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <h5 class="h6 mb-1">{{ n.titulo }}</h5>
+          {% if n.materia %}<span class="badge text-bg-primary text-truncate" style="max-width:140px">{{ n.materia.nome }}</span>
+          {% else %}<span class="badge text-bg-secondary">Geral</span>{% endif %}
+        </div>
+        <p class="small mb-2 flex-grow-1 pre-wrap" style="display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden">{{ n.conteudo }}</p>
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="small text-body-secondary">
+            Criada em {{ n.criada_em|data_br }}
+            {% if n.atualizada_em and n.atualizada_em != n.criada_em %}<br>Atualizada em {{ n.atualizada_em|datahora_br }}{% endif %}
+          </div>
+          <div class="text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Abrir / editar" data-form-modal="#modal-nota"
+                    data-action="{{ url_for('anotacoes.editar', id=n.id) }}" data-titulo="Editar anotação"
+                    data-valores='{{ n.para_form()|tojson }}'><i class="bi bi-pencil"></i></button>
+            {{ botao_excluir(url_for('anotacoes.excluir', id=n.id), 'Excluir a anotação “' ~ n.titulo ~ '”? Esta ação não pode ser desfeita.') }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{{ paginacao(pag) }}
+{% else %}
+<div class="card"><div class="card-body">
+  {% call vazio('bi-sticky', 'Nenhuma anotação encontrada', 'Registre resumos, dúvidas e ideias dos seus estudos.') %}{% endcall %}
+</div></div>
+{% endif %}
+
+{% call modal_form('modal-nota', 'modal-lg') %}
+  <div class="row g-3">
+    <div class="col-md-8"><label class="form-label">Título *</label>
+      <input class="form-control" name="titulo" maxlength="160" required><div class="invalid-feedback">Informe o título.</div></div>
+    <div class="col-md-4"><label class="form-label">Matéria</label>
+      <select class="form-select" name="materia_id">{{ opcoes_materias(materias, None, 'Geral (sem matéria)') }}</select></div>
+    <div class="col-12"><label class="form-label">Anotação *</label>
+      <textarea class="form-control" name="conteudo" rows="10" required></textarea><div class="invalid-feedback">Escreva o conteúdo da anotação.</div></div>
+  </div>
+{% endcall %}
+{% endblock %}

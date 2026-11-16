@@ -1,0 +1,43 @@
+{% extends "auth/base_auth.html" %}
+{% from "_macros.html" import campo_senha with context %}
+{% block titulo %}Recuperar senha{% endblock %}
+
+{% block conteudo %}
+<h1 class="h3 fw-bold mb-1">Recuperar senha</h1>
+<p class="text-body-secondary mb-4">Informe seu usuário e um dos <strong>códigos de recuperação</strong> que você recebeu ao criar a conta. Cada código funciona uma única vez.</p>
+
+<form method="post" class="needs-validation" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-3">
+    <label class="form-label" for="login">Usuário</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-person"></i></span>
+      <input class="form-control" id="login" name="login" value="{{ login }}" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" required autofocus>
+      <div class="invalid-feedback">Informe o usuário.</div>
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="codigo">Código de recuperação</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-key"></i></span>
+      <input class="form-control text-uppercase" id="codigo" name="codigo" placeholder="XXXX-XXXX-XXXX" autocomplete="off"
+             autocapitalize="characters" spellcheck="false" maxlength="20" required>
+      <div class="invalid-feedback">Informe um código de recuperação.</div>
+    </div>
+  </div>
+  {{ campo_senha('nova_senha', 'Nova senha', 'nova_senha', autocomplete='new-password', forca=True) }}
+  {{ campo_senha('confirmacao', 'Confirmar nova senha', 'confirmacao', autocomplete='new-password', confirma_de='nova_senha') }}
+  <button class="btn btn-primary btn-lg w-100" type="submit"><i class="bi bi-arrow-repeat me-2"></i>Redefinir senha</button>
+</form>
+
+<div class="text-center mt-3"><a href="{{ url_for('auth.entrar') }}" class="small"><i class="bi bi-arrow-left me-1"></i>Voltar ao login</a></div>
+
+<details class="mt-4 small">
+  <summary class="text-body-secondary">Perdi meus códigos. E agora?</summary>
+  <div class="mt-2 text-body-secondary">
+    Como os dados ficam no seu computador, quem tem acesso a ele pode redefinir a senha. Feche o sistema, abra o terminal na pasta do StudyFlow, ative o ambiente virtual e execute:
+    <pre class="bg-body-tertiary rounded p-2 mt-2 mb-1"><code>python redefinir_senha.py</code></pre>
+    O script pede a nova senha e gera um novo conjunto de códigos. Seus dados de estudo não são alterados.
+  </div>
+</details>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campos_base, opcoes with context %}
+{% block titulo %}Configurações{% endblock %}
+
+{% block conteudo %}
+<div class="page-header"><h2>Configurações</h2></div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <form class="card needs-validation" method="post" action="{{ url_for('configuracoes.salvar') }}" id="form-config" novalidate>
+      {{ campos_base() }}
+      <div class="card-header">Preferências</div>
+      <div class="card-body">
+        <h6 class="text-body-secondary text-uppercase small">Metas de estudo</h6>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6"><label class="form-label">Meta diária (horas)</label>
+            <input class="form-control" type="number" name="meta_diaria_horas" min="0.1" max="24" step="0.1" value="{{ cfg.meta_diaria_horas }}" required></div>
+          <div class="col-md-6"><label class="form-label">Meta semanal (horas)</label>
+            <input class="form-control" type="number" name="meta_semanal_horas" min="0.1" max="168" step="0.1" value="{{ cfg.meta_semanal_horas }}" required></div>
+        </div>
+
+        <h6 class="text-body-secondary text-uppercase small">Pomodoro (minutos)</h6>
+        <div class="row g-3 mb-4">
+          <div class="col-6 col-md-3"><label class="form-label">Foco</label>
+            <input class="form-control" type="number" name="pomodoro_foco" min="1" max="180" value="{{ cfg.pomodoro_foco }}" required></div>
+          <div class="col-6 col-md-3"><label class="form-label">Descanso</label>
+            <input class="form-control" type="number" name="pomodoro_pausa" min="1" max="60" value="{{ cfg.pomodoro_pausa }}" required></div>
+          <div class="col-6 col-md-3"><label class="form-label">Descanso longo</label>
+            <input class="form-control" type="number" name="pomodoro_pausa_longa" min="1" max="120" value="{{ cfg.pomodoro_pausa_longa }}" required></div>
+          <div class="col-6 col-md-3"><label class="form-label">Focos até o longo</label>
+            <input class="form-control" type="number" name="pomodoro_ciclos" min="2" max="10" value="{{ cfg.pomodoro_ciclos }}" required></div>
+        </div>
+
+        <h6 class="text-body-secondary text-uppercase small">Exibição</h6>
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label">Tema</label>
+            <select class="form-select" name="tema">
+              <option value="claro" {{ 'selected' if cfg.tema == 'claro' }}>Claro</option>
+              <option value="escuro" {{ 'selected' if cfg.tema == 'escuro' }}>Escuro</option>
+            </select></div>
+          <div class="col-md-4"><label class="form-label">Itens por página</label>
+            <select class="form-select" name="itens_por_pagina">
+              {% for n in ['5', '10', '20', '50'] %}<option value="{{ n }}" {{ 'selected' if cfg.itens_por_pagina == n }}>{{ n }}</option>{% endfor %}
+            </select></div>
+          <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" role="switch" name="menu_recolhido" id="cfg-menu" value="1" {{ 'checked' if cfg.menu_recolhido == '1' }}>
+              <label class="form-check-label" for="cfg-menu">Menu lateral recolhido</label>
+            </div></div>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent text-end">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Salvar configurações</button>
+      </div>
+    </form>
+
+    <div class="card mt-3">
+      <div class="card-header">Conta e segurança</div>
+      <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <p class="mb-0 text-body-secondary flex-grow-1">Altere sua senha, seu nome e gere novos códigos de recuperação.</p>
+        <a class="btn btn-outline-primary" href="{{ url_for('auth.conta') }}"><i class="bi bi-person-gear me-1"></i>Minha conta</a>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">Dados de exemplo</div>
+      <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <p class="mb-0 text-body-secondary flex-grow-1">Cadastra as matérias de exemplo (Inglês, Italiano, Python, SQL, Power BI e JavaScript) que ainda não existirem. Nada é duplicado e você pode editá-las ou excluí-las depois.</p>
+        <form method="post" action="{{ url_for('dashboard.carregar_dados_exemplo') }}">
+          {{ campos_base() }}
+          <button class="btn btn-outline-primary" type="submit"><i class="bi bi-magic me-1"></i>Carregar matérias de exemplo</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Informações do sistema</div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><span>StudyFlow</span><strong>v{{ info.versao }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Python</span><strong>{{ info.python }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Flask</span><strong>{{ info.flask }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Flask-SQLAlchemy</span><strong>{{ info.flask_sqlalchemy }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>SQLAlchemy</span><strong>{{ info.sqlalchemy }}</strong></li>
+        <li class="list-group-item"><div>Banco de dados (SQLite)</div><div class="small text-body-secondary text-break">{{ info.banco }} · {{ info.tamanho_kb|numero(1) }} KB</div></li>
+      </ul>
+    </div>
+    <div class="card mt-3">
+      <div class="card-header">Registros no banco</div>
+      <ul class="list-group list-group-flush">
+        {% for nome, qtd in info.contagens %}
+        <li class="list-group-item d-flex justify-content-between"><span>{{ nome }}</span><span class="badge text-bg-light border">{{ qtd }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // O estado do menu também é guardado no navegador; sincroniza com a preferência salva.
+  document.getElementById('form-config').addEventListener('submit', function () {
+    try { localStorage.setItem('studyflow.menu', document.getElementById('cfg-menu').checked ? '1' : '0'); } catch (e) { /* ignora */ }
+  });
+</script>
+{% endblock %}
